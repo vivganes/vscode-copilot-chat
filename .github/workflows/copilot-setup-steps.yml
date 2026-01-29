@@ -14,7 +14,7 @@ on:
 jobs:
   copilot-setup-steps:
     name: Setup Development Environment
-    runs-on: vscode-large-runners
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
