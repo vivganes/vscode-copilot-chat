@@ -7,10 +7,8 @@ import * as l10n from '@vscode/l10n';
 import { disableErrorLogging, parse as parsePartialJson } from 'best-effort-json-parser';
 import type { ChatResponseStream, ChatVulnerability } from 'vscode';
 import { IResponsePart } from '../../../platform/chat/common/chatMLFetcher';
-import { ConfigKey, IConfigurationService } from '../../../platform/configuration/common/configurationService';
 import { IResponseDelta } from '../../../platform/networking/common/fetch';
 import { FilterReason } from '../../../platform/networking/common/openai';
-import { IExperimentationService } from '../../../platform/telemetry/common/nullExperimentationService';
 import { isEncryptedThinkingDelta } from '../../../platform/thinking/common/thinking';
 import { CancellationToken } from '../../../util/vs/base/common/cancellation';
 import { URI } from '../../../util/vs/base/common/uri';
@@ -37,9 +35,7 @@ export class PseudoStopStartResponseProcessor implements IResponseProcessor {
 	constructor(
 		private readonly stopStartMappings: readonly StartStopMapping[],
 		private readonly processNonReportedDelta: ((deltas: IResponseDelta[]) => string[]) | undefined,
-		private readonly options: { subagentInvocationId?: string } | undefined,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@IExperimentationService private readonly _experimentationService: IExperimentationService
+		private readonly options?: { subagentInvocationId?: string }
 	) { }
 
 	async processResponse(_context: IResponseProcessorContext, inputStream: AsyncIterable<IResponsePart>, outputStream: ChatResponseStream, token: CancellationToken): Promise<void> {
@@ -63,11 +59,7 @@ export class PseudoStopStartResponseProcessor implements IResponseProcessor {
 				this.thinkingActive = true;
 			}
 		} else if (this.thinkingActive) {
-			// Only signal reasoning done if thinkingKeepExpanded setting is false (default)
-			const keepExpanded = this._configurationService.getExperimentBasedConfig(ConfigKey.ThinkingKeepExpanded, this._experimentationService);
-			if (!keepExpanded) {
-				progress.thinkingProgress({ id: '', text: '', metadata: { vscodeReasoningDone: true, stopReason: delta.text ? 'text' : 'other' } });
-			}
+			progress.thinkingProgress({ id: '', text: '', metadata: { vscodeReasoningDone: true, stopReason: delta.text ? 'text' : 'other' } });
 			this.thinkingActive = false;
 		}
 

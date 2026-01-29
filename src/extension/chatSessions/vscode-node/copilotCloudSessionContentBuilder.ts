@@ -6,10 +6,8 @@
 import * as pathLib from 'path';
 import * as vscode from 'vscode';
 import { ChatRequestTurn, ChatRequestTurn2, ChatResponseMarkdownPart, ChatResponseMultiDiffPart, ChatResponseProgressPart, ChatResponseThinkingProgressPart, ChatResponseTurn2, ChatResult, ChatToolInvocationPart, MarkdownString, Uri } from 'vscode';
-import { ConfigKey, IConfigurationService } from '../../../platform/configuration/common/configurationService';
 import { IGitService } from '../../../platform/git/common/gitService';
 import { PullRequestSearchItem, SessionInfo } from '../../../platform/github/common/githubAPI';
-import { IExperimentationService } from '../../../platform/telemetry/common/nullExperimentationService';
 import { getAuthorDisplayName, toOpenPullRequestWebviewUri } from '../vscode/copilotCodingAgentUtils';
 
 export interface SessionResponseLogChunk {
@@ -100,15 +98,8 @@ export interface ParsedToolCallDetails {
 export class ChatSessionContentBuilder {
 	constructor(
 		private type: string,
-		@IGitService private readonly _gitService: IGitService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@IExperimentationService private readonly _experimentationService: IExperimentationService
+		@IGitService private readonly _gitService: IGitService
 	) {
-	}
-
-	public shouldSignalReasoningDone(): boolean {
-		const keepExpanded = this._configurationService.getExperimentBasedConfig(ConfigKey.ThinkingKeepExpanded, this._experimentationService);
-		return !keepExpanded;
 	}
 
 	public async buildSessionHistory(
@@ -248,7 +239,7 @@ export class ChatSessionContentBuilder {
 					const toolPart = this.createToolInvocationPart(pullRequest, toolCall, args.name || delta.content);
 					if (toolPart) {
 						responseParts.push(toolPart);
-						if (toolPart instanceof ChatResponseThinkingProgressPart && this.shouldSignalReasoningDone()) {
+						if (toolPart instanceof ChatResponseThinkingProgressPart) {
 							responseParts.push(new ChatResponseThinkingProgressPart('', '', { vscodeReasoningDone: true }));
 						}
 					}
@@ -273,7 +264,7 @@ export class ChatSessionContentBuilder {
 						const toolPart = this.createToolInvocationPart(pullRequest, toolCall, delta.content || '');
 						if (toolPart) {
 							responseParts.push(toolPart);
-							if (toolPart instanceof ChatResponseThinkingProgressPart && this.shouldSignalReasoningDone()) {
+							if (toolPart instanceof ChatResponseThinkingProgressPart) {
 								responseParts.push(new ChatResponseThinkingProgressPart('', '', { vscodeReasoningDone: true }));
 							}
 						}
@@ -294,8 +285,7 @@ export class ChatSessionContentBuilder {
 						if (choice.finish_reason === 'stop') {
 							responseParts.push(new ChatResponseMarkdownPart(trimmedContent));
 						} else {
-							const metadata = this.shouldSignalReasoningDone() ? { vscodeReasoningDone: true } : undefined;
-							responseParts.push(new ChatResponseThinkingProgressPart(trimmedContent, '', metadata));
+							responseParts.push(new ChatResponseThinkingProgressPart(trimmedContent, '', { vscodeReasoningDone: true }));
 						}
 						currentResponseContent = '';
 					}
